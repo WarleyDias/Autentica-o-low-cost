@@ -1,58 +1,60 @@
-# Guia de Instalação e Setup
+# Installation and Setup Guide
 
-## 📋 Pré-requisitos
+## Prerequisites
 
-- **.NET 8.0 SDK** - [Download aqui](https://dotnet.microsoft.com/download)
-- **Git** (opcional) - [Download aqui](https://git-scm.com/)
-- **Editor**: Visual Studio, VS Code ou outro
+- **.NET 8.0 SDK** - [Download here](https://dotnet.microsoft.com/download)
+- **Git** (optional) - [Download here](https://git-scm.com/)
+- **Editor**: Visual Studio, VS Code or other
 
-## 🚀 Instalação Rápida
+## Quick Installation
 
-### 1. Clonar ou Fazer Download
+### 1. Clone or Download
 
 ```bash
-# Com Git
+# With Git
 git clone https://github.com/seu-usuario/auth-system.git
 cd auth-system
 
-# Ou fazer download e extrair manualmente
+# Or download and extract manually
 ```
 
-### 2. Restaurar Dependências
+### 2. Restore Dependencies
 
 ```bash
 dotnet restore
 ```
 
-### 3. Executar Testes
+### 3. Run Application
 
 ```bash
 dotnet run
 ```
 
-A aplicação abrirá em `https://localhost:7091` (porta padrão)
+The application will open at `https://localhost:7091` (default port)
 
-## 📦 Dependências do Projeto
+## Project Dependencies
 
-As dependências já estão configuradas no arquivo `.csproj`:
+Dependencies are already configured in the `.csproj` file:
 
 ```xml
 <PackageReference Include="Microsoft.AspNetCore.App" Version="8.0.0" />
 <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.0.3" />
 <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="7.0.3" />
+<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
 ```
 
-### O que cada pacote faz:
+### What each package does:
 
-- **Microsoft.AspNetCore.App** - Framework web
-- **System.IdentityModel.Tokens.Jwt** - Criação e manipulação de JWT
-- **Microsoft.IdentityModel.Tokens** - Validação de tokens
+- **Microsoft.AspNetCore.App** - Web framework
+- **System.IdentityModel.Tokens.Jwt** - JWT creation and manipulation
+- **Microsoft.IdentityModel.Tokens** - Token validation
+- **BCrypt.Net-Next** - Secure password hashing
 
-## 🔧 Configuração
+## Configuration
 
 ### 1. appsettings.json
 
-O arquivo já tem configuração padrão. Para desenvolvimento:
+The file already has default configuration. For development:
 
 ```json
 {
@@ -65,34 +67,34 @@ O arquivo já tem configuração padrão. Para desenvolvimento:
 }
 ```
 
-### 2. Variáveis de Ambiente (Production)
+### 2. Environment Variables (Production)
 
-Configure em seu servidor:
+Configure on your server:
 
 ```bash
 # Linux/macOS
-export Jwt__SecretKey="sua-chave-muito-segura"
+export Jwt__SecretKey="your-very-secure-key"
 export Jwt__ExpirationMinutes="60"
 
 # Windows PowerShell
-$env:Jwt__SecretKey = "sua-chave-muito-segura"
+$env:Jwt__SecretKey = "your-very-secure-key"
 $env:Jwt__ExpirationMinutes = "60"
 
 # Windows CMD
-set Jwt__SecretKey=sua-chave-muito-segura
+set Jwt__SecretKey=your-very-secure-key
 set Jwt__ExpirationMinutes=60
 ```
 
-## 🏃 Executar a Aplicação
+## Running the Application
 
-### Desenvolvimento
+### Development
 
 ```bash
-# Com reload automático de código
+# With automatic code reload
 dotnet watch run --environment Development
 ```
 
-### Production (Simulado)
+### Production (Simulated)
 
 ```bash
 dotnet run --environment Production
@@ -106,64 +108,64 @@ cd ./publish
 dotnet auth-system.dll
 ```
 
-## 🐳 Usando Docker
+## Using Docker
 
-### Build da Imagem
+### Build Image
 
 ```bash
 docker build -t auth-system:latest .
 ```
 
-### Executar Container
+### Run Container
 
 ```bash
 docker run -p 5000:80 \
-  -e Jwt__SecretKey="sua-chave-aqui" \
+  -e Jwt__SecretKey="your-key-here" \
   auth-system:latest
 ```
 
-### Usando Docker Compose
+### Using Docker Compose
 
 ```bash
 docker-compose up
 ```
 
-## ✅ Verificar Instalação
+## Verify Installation
 
 ### 1. Health Check
 
 ```bash
-curl http://localhost:5000/health
+curl http://localhost:5000/api/healthcheck
 ```
 
 ### 2. Swagger/OpenAPI
 
-Abra em seu navegador:
+Open in your browser:
 ```
 http://localhost:5000/swagger
 ```
 
-### 3. Testar Endpoint
+### 3. Test Endpoint
 
 ```bash
 curl -X POST http://localhost:5000/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"teste","email":"teste@example.com","password":"senha123","confirmPassword":"senha123"}'
+  -d '{"username":"test","email":"test@example.com","password":"password123","confirmPassword":"password123"}'
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
-### Erro: "dotnet: command not found"
+### Error: "dotnet: command not found"
 ```bash
-# Verificar instalação do .NET
+# Check .NET installation
 dotnet --version
 
-# Instalar .NET 8.0 se não tiver
+# Install .NET 8.0 if you don't have it
 ```
 
-### Erro: "Port 5000 already in use"
+### Error: "Port 5000 already in use"
 ```bash
-# Linux/macOS - Encontrar processo
+# Linux/macOS - Find process
 lsof -i :5000
 kill -9 <PID>
 
@@ -172,33 +174,36 @@ netstat -ano | findstr :5000
 taskkill /PID <PID> /F
 ```
 
-### Erro: "Connection refused"
-- Certificar que a aplicação está rodando
-- Verificar configuração de firewall
-- Verificar se está usando HTTPS (porta 5001) ou HTTP (5000)
+### Error: "Connection refused"
+- Ensure the application is running
+- Check firewall configuration
+- Verify you're using HTTPS (port 5001) or HTTP (port 5000)
 
-### Erro: "Invalid Jwt Token"
-- Verificar se a SecretKey está igual em todos os lugares
-- Verificar se o token não expirou
-- Certificar que o token está no header correto: `Authorization: Bearer <token>`
+### Error: "Invalid Jwt Token"
+- Verify SecretKey is the same everywhere
+- Verify token hasn't expired
+- Ensure token is in correct header: `Authorization: Bearer <token>`
 
-## 📊 Estrutura de Diretórios Criados
+## Created Directory Structure
 
 ```
 auth-system/
-├── bin/                           (Saída da compilação)
-├── obj/                           (Objetos compilados)
+├── bin/                           (Compilation output)
+├── obj/                           (Compiled objects)
 ├── Controllers/
-│   └── AuthController.cs
+│   ├── AuthController.cs
+│   └── HealthCheckController.cs
 ├── Models/
 │   ├── User.cs
 │   ├── LoginRequest.cs
 │   ├── RegisterRequest.cs
-│   └── AuthResponse.cs
+│   ├── AuthResponse.cs
+│   └── HealthCheckResponse.cs
 ├── Services/
 │   ├── AuthService.cs
 │   ├── JwtTokenService.cs
-│   └── PasswordHashService.cs
+│   ├── PasswordHashService.cs
+│   └── HealthCheckService.cs
 ├── Program.cs
 ├── auth-system.csproj
 ├── appsettings.json
@@ -209,12 +214,12 @@ auth-system/
 ├── README.md
 ├── DESENVOLVIMENTO.md
 ├── ARQUITETURA.md
-└── SETUP.md (este arquivo)
+└── SETUP.md (this file)
 ```
 
-## 🔐 Segurança - Próximas Ações
+## Security - Next Steps
 
-1. **Gerar nova SecretKey segura**
+1. **Generate new secure SecretKey**
    ```bash
    # Linux/macOS
    openssl rand -base64 32
@@ -223,37 +228,38 @@ auth-system/
    [Convert]::ToBase64String((1..32 | ForEach-Object {[byte](Get-Random -Maximum 256)}))
    ```
 
-2. **Ativar HTTPS**
-   - Certificado auto-assinado para dev
-   - Certificado válido para produção (Let's Encrypt)
+2. **Enable HTTPS**
+   - Self-signed certificate for development
+   - Valid certificate for production (Let's Encrypt)
 
-3. **Implementar Banco de Dados**
-   - Remover armazenamento em memória
-   - Usar Entity Framework Core
-   - SQL Server ou PostgreSQL
+3. **Implement Database**
+   - Remove in-memory storage
+   - Use Entity Framework Core
+   - SQL Server or PostgreSQL
 
-4. **Adicionar Logging**
-   - Serilog para logs estruturados
-   - Rastreamento de tentativas de login
+4. **Add Logging**
+   - Serilog for structured logs
+   - Track login attempts
 
-## 📚 Recursos Úteis
+## Useful Resources
 
 - [ASP.NET Core Docs](https://docs.microsoft.com/aspnet/core/)
-- [JWT.IO](https://jwt.io/) - Decodificar tokens
+- [JWT.IO](https://jwt.io/) - Decode tokens
 - [Azure App Service](https://azure.microsoft.com) - Deploy
-- [Postman](https://www.postman.com/) - Testar API
+- [Postman](https://www.postman.com/) - Test API
 
-## ❓ Perguntas Frequentes
+## Frequently Asked Questions
 
-**P: Como mudar a porta?**  
-R: Edite `Properties/launchSettings.json` ou use `--urls` flag
+**Q: How to change the port?**  
+A: Edit `Properties/launchSettings.json` or use `--urls` flag
 
-**P: Como conectar um banco de dados?**  
-R: Adicione Entity Framework Core e crie um `DbContext`
+**Q: How to connect a database?**  
+A: Add Entity Framework Core and create a `DbContext`
 
-**P: Como adicionar mais roles/permissões?**  
-R: Estenda o modelo `User` e adicione claims no JWT
+**Q: How to add more roles/permissions?**  
+A: Extend the `User` model and add claims to JWT
 
 ---
 
-**Pronto!** Seu sistema de autenticação deve estar funcionando. Consulte o [README.md](README.md) para mais detalhes.
+**Ready!** Your authentication system should be working. See [README.md](README.md) for more details.
+

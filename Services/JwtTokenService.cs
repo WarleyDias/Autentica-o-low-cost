@@ -21,10 +21,13 @@ public class JwtTokenService : IJwtTokenService
 
     public JwtTokenService(IConfiguration configuration)
     {
-        _secretKey = configuration["Jwt:SecretKey"] ?? "your-super-secret-key-that-should-be-at-least-32-characters-long";
+        _secretKey = configuration["Jwt:SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
         _issuer = configuration["Jwt:Issuer"] ?? "AuthSystem";
         _audience = configuration["Jwt:Audience"] ?? "AuthSystemUsers";
         _expirationMinutes = int.Parse(configuration["Jwt:ExpirationMinutes"] ?? "60");
+
+        if (_secretKey.Length < 32)
+            throw new InvalidOperationException("JWT SecretKey must be at least 32 characters");
     }
 
     public string GenerateToken(User user)
@@ -65,7 +68,8 @@ public class JwtTokenService : IJwtTokenService
                 ValidIssuer = _issuer,
                 ValidateAudience = true,
                 ValidAudience = _audience,
-                ValidateLifetime = true
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
             }, out var validatedToken);
 
             return principal;
