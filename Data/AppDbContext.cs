@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +34,18 @@ public class AppDbContext : DbContext
                   .WithMany(u => u.RefreshTokens)
                   .HasForeignKey(rt => rt.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+            entity.HasIndex(a => a.EventType);
+            entity.HasIndex(a => a.CreatedAt);
+            entity.HasIndex(a => new { a.Username, a.CreatedAt });
+            entity.Property(a => a.EventType).HasMaxLength(50).IsRequired();
+            entity.Property(a => a.IpAddress).HasMaxLength(45).IsRequired();
+            entity.Property(a => a.Username).HasMaxLength(50);
+            entity.Property(a => a.Details).HasMaxLength(500);
         });
     }
 }

@@ -3,15 +3,18 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using AuthSystem.Data;
+using AuthSystem.Models;
 using AuthSystem.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=auth.db";
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=auth.db"));
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
+
+builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseSqlite(connectionString));
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -30,6 +33,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
         options.Events = new JwtBearerEvents
         {
+            OnAuthenticationFailed = async context =>
+            {
+                var auditLog = context.HttpContext.RequestServices
+                    .GetRequiredService<IAuditLogService>();
+
+                var ip = context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+                await auditLog.LogAsync(
+                    SecurityEvent.JwtValidationFailed,
+                    false,
+                    ip,
+                    details: context.Exception.GetType().Name);
+            },
+
             OnChallenge = context =>
             {
                 context.HandleResponse();
@@ -44,6 +61,7 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IPasswordHashService, PasswordHashService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddSingleton<IHealthCheckService, HealthCheckService>();
 
 builder.Services.AddControllers();
