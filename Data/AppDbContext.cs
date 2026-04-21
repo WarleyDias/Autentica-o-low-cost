@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<UserToken> UserTokens => Set<UserToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,6 +47,18 @@ public class AppDbContext : DbContext
             entity.Property(a => a.IpAddress).HasMaxLength(45).IsRequired();
             entity.Property(a => a.Username).HasMaxLength(50);
             entity.Property(a => a.Details).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<UserToken>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.HasIndex(t => t.TokenHash).IsUnique();
+            entity.HasIndex(t => new { t.UserId, t.TokenType });
+            entity.Property(t => t.TokenHash).HasMaxLength(64).IsRequired();
+            entity.HasOne(t => t.User)
+                  .WithMany(u => u.UserTokens)
+                  .HasForeignKey(t => t.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
