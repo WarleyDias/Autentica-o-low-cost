@@ -1,200 +1,250 @@
-# Exemplos de Testes da API de Autenticação
+# API Authentication Testing Examples
 
-Este arquivo contém exemplos de requisições HTTP para testar a API de autenticação.
+This file contains HTTP request examples for testing the authentication API.
 
-## 1. Registrar um Novo Usuário
+## 1. Register New User
 
 ```
 POST http://localhost:5000/api/auth/register
 Content-Type: application/json
 
 {
-  "username": "joao_silva",
-  "email": "joao@example.com",
-  "password": "Senha@123",
-  "confirmPassword": "Senha@123"
+  "username": "john_doe",
+  "email": "john@example.com",
+  "password": "SecurePass123",
+  "confirmPassword": "SecurePass123"
 }
 ```
 
-**Respostas Esperadas:**
+**Expected Responses:**
 
-- ✅ Sucesso (201): Usuário registrado com sucesso
-- ❌ Erro (400): Usuário já existe, senhas não coincidem, dados inválidos
+- Success (200): User registered successfully
+- Error (400): User already exists, passwords don't match, invalid data
 
-## 2. Fazer Login
+## 2. Login
 
 ```
 POST http://localhost:5000/api/auth/login
 Content-Type: application/json
 
 {
-  "username": "joao_silva",
-  "password": "Senha@123"
+  "username": "john_doe",
+  "password": "SecurePass123"
 }
 ```
 
-**Resposta de Sucesso:**
+**Success Response:**
 ```json
 {
   "success": true,
-  "message": "Login realizado com sucesso",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIxIiwibmFtZSI6Impv...",
+  "message": "Login successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIxIiwibmFtZSI6ImpvaG4i...",
   "user": {
     "id": 1,
-    "username": "joao_silva",
-    "email": "joao@example.com"
+    "username": "john_doe",
+    "email": "john@example.com"
   }
 }
 ```
 
-**Copie o token retornado para usar nos próximos testes.**
+**Copy the returned token to use in the following tests.**
 
-## 3. Acessar Perfil Protegido
+## 3. Access Protected Profile
 
 ```
 GET http://localhost:5000/api/auth/profile
-Authorization: Bearer <seu_token_aqui>
+Authorization: Bearer <your_token_here>
 ```
 
-**Exemplo Com Token Real:**
+**Example With Real Token:**
 ```
 GET http://localhost:5000/api/auth/profile
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIxIn0...
 ```
 
-**Respostas Esperadas:**
+**Expected Responses:**
 
-- ✅ Sucesso (200): Retorna dados do usuário
-- ❌ Erro (401): Token ausente ou inválido
-- ❌ Erro (404): Usuário não encontrado
+- Success (200): Returns user data
+- Error (401): Token missing or invalid
+- Error (404): User not found
 
-## 4. Casos de Teste
+## 4. Test Cases
 
-### 4.1 Validação de Senha Fraca
+### 4.1 Weak Password Validation
 
 ```
 POST http://localhost:5000/api/auth/register
 Content-Type: application/json
 
 {
-  "username": "teste",
-  "email": "teste@example.com",
+  "username": "test",
+  "email": "test@example.com",
   "password": "123",
   "confirmPassword": "123"
 }
 ```
 
-**Resposta:**
+**Response:**
 ```json
 {
   "success": false,
-  "message": "A senha deve ter no mínimo 6 caracteres"
+  "message": "Password must have at least 8 characters"
 }
 ```
 
-### 4.2 Senhas Não Coincidem
+### 4.2 Passwords Don't Match
 
 ```
 POST http://localhost:5000/api/auth/register
 Content-Type: application/json
 
 {
-  "username": "teste",
-  "email": "teste@example.com",
-  "password": "senha123",
-  "confirmPassword": "senha456"
+  "username": "test",
+  "email": "test@example.com",
+  "password": "password123",
+  "confirmPassword": "password456"
 }
 ```
 
-**Resposta:**
+**Response:**
 ```json
 {
   "success": false,
-  "message": "As senhas não coincidem"
+  "message": "Passwords do not match"
 }
 ```
 
-### 4.3 Usuário Já Existe
+### 4.3 User Already Exists
 
 ```
 POST http://localhost:5000/api/auth/register
 Content-Type: application/json
 
 {
-  "username": "joao_silva",
-  "email": "outro@example.com",
-  "password": "senha123",
-  "confirmPassword": "senha123"
+  "username": "john_doe",
+  "email": "another@example.com",
+  "password": "password123",
+  "confirmPassword": "password123"
 }
 ```
 
-**Resposta:**
+**Response:**
 ```json
 {
   "success": false,
-  "message": "Usuário já existe"
+  "message": "Username already exists"
 }
 ```
 
-### 4.4 Credenciais Inválidas
+### 4.4 Invalid Credentials
 
 ```
 POST http://localhost:5000/api/auth/login
 Content-Type: application/json
 
 {
-  "username": "joao_silva",
-  "password": "senha_errada"
+  "username": "john_doe",
+  "password": "wrong_password"
 }
 ```
 
-**Resposta:**
+**Response:**
 ```json
 {
   "success": false,
-  "message": "Usuário ou senha inválidos"
+  "message": "Invalid credentials"
 }
 ```
 
-## 5. Usando com cURL
+## 5. Using with cURL
 
-### Registrar:
+### Register:
 ```bash
 curl -X POST http://localhost:5000/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"joao","email":"joao@example.com","password":"senha123","confirmPassword":"senha123"}'
+  -d '{"username":"john","email":"john@example.com","password":"password123","confirmPassword":"password123"}'
 ```
 
 ### Login:
 ```bash
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"joao","password":"senha123"}'
+  -d '{"username":"john","password":"password123"}'
 ```
 
-### Perfil (com token):
+### Profile (with token):
 ```bash
 curl -X GET http://localhost:5000/api/auth/profile \
-  -H "Authorization: Bearer seu_token_aqui"
+  -H "Authorization: Bearer your_token_here"
 ```
 
-## 6. Variáveis de Ambiente para Testes
+### Health Check:
+```bash
+curl -X GET http://localhost:5000/api/healthcheck
+```
 
-Para facilitar testes, defina estas variáveis no seu cliente HTTP:
+## 6. Environment Variables for Tests
 
-| Variável | Valor |
+To facilitate testing, set these variables in your HTTP client:
+
+| Variable | Value |
 |----------|-------|
 | `base_url` | `http://localhost:5000` |
-| `token` | Copiar do login |
-| `username` | Seu nome de usuário de teste |
-| `password` | Sua senha de teste |
+| `token` | Copy from login |
+| `username` | Your test username |
+| `password` | Your test password |
 
-## 7. Fluxo Completo de Teste
+## 7. Complete Test Flow
 
-1. **POST** /api/auth/register - Registrar novo usuário
-2. **POST** /api/auth/login - Fazer login (obter token)
-3. **GET** /api/auth/profile - Acessar perfil protegido com o token
+1. **POST** /api/auth/register - Register new user
+2. **POST** /api/auth/login - Login (obtain token)
+3. **GET** /api/auth/profile - Access protected profile with token
+4. **GET** /api/healthcheck - Check application health
+
+## 8. Invalid Email Test
+
+```
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "test",
+  "email": "invalid-email",
+  "password": "password123",
+  "confirmPassword": "password123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Invalid email format"
+}
+```
+
+## 9. Invalid Username Length
+
+```
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "ab",
+  "email": "test@example.com",
+  "password": "password123",
+  "confirmPassword": "password123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Username must be between 3 and 50 characters"
+}
+```
 
 ---
 
-**Dica:** Use o Postman ou Insomnia para importar essas requisições facilmente!
+**Tip:** Use Postman or Insomnia to import these requests easily!

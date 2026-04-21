@@ -1,127 +1,127 @@
-# Guia de Desenvolvimento
+# Development Guide
 
-## Configuração Inicial
+## Initial Setup
 
-### 1. Clonar o Repositório
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/seu-usuario/auth-system.git
 cd auth-system
 ```
 
-### 2. Restaurar Dependências
+### 2. Restore Dependencies
 ```bash
 dotnet restore
 ```
 
-### 3. Executar Testes
+### 3. Run Tests
 ```bash
 dotnet test
 ```
 
-### 4. Executar a Aplicação
+### 4. Run the Application
 ```bash
 # Development
 dotnet run --environment Development
 
-# Production (simulado)
+# Production (simulated)
 dotnet run --environment Production
 ```
 
-## Arquitetura
+## Architecture
 
-### Camadas
+### Layers
 
-1. **Controllers** - Endpoints HTTP
-2. **Services** - Lógica de negócio
-3. **Models** - Entidades e DTOs
-4. **Configuration** - Configuração da aplicação
+1. **Controllers** - HTTP endpoints
+2. **Services** - Business logic
+3. **Models** - Entities and DTOs
+4. **Configuration** - Application configuration
 
-### Fluxo de Autenticação
+## Authentication Flow
 
 ```
-Cliente
+Client
   ↓
-POST /api/auth/register ou /api/auth/login
+POST /api/auth/register or /api/auth/login
   ↓
 AuthController
   ↓
-AuthService (validações)
+AuthService (validations)
   ↓
-PasswordHashService (hash de senha)
+PasswordHashService (password hashing with BCrypt)
   ↓
-JwtTokenService (geração de token)
+JwtTokenService (token generation)
   ↓
-Resposta com Token (se sucesso)
+Response with Token (if successful)
 ```
 
-## Padrões de Código
+## Code Standards
 
 - **Namespaces**: PascalCase (ex: `AuthSystem.Services`)
 - **Classes**: PascalCase (ex: `AuthService`)
-- **Interfaces**: Prefixo "I" + PascalCase (ex: `IAuthService`)
-- **Métodos**: PascalCase (ex: `LoginAsync`)
-- **Variáveis Privadas**: Underline + camelCase (ex: `_authService`)
+- **Interfaces**: "I" prefix + PascalCase (ex: `IAuthService`)
+- **Methods**: PascalCase (ex: `LoginAsync`)
+- **Private Variables**: Underscore + camelCase (ex: `_authService`)
 
-## Melhorias Futuras
+## Future Improvements
 
-### Curto Prazo
-- [ ] Adicionar testes unitários
-- [ ] Implementar logging com Serilog
-- [ ] Adicionar validação com FluentValidation
-- [ ] Criar Database Service com Entity Framework
+### Short-term
+- Add unit tests
+- Implement logging with Serilog
+- Add validation with FluentValidation
+- Create Database Service with Entity Framework
 
-### Médio Prazo
-- [ ] Implementar Refresh Tokens
-- [ ] Adicionar autenticação social (Google, Facebook)
-- [ ] Implementar 2FA
-- [ ] Adicionar rate limiting
+### Medium-term
+- Implement Refresh Tokens
+- Add social authentication (Google, Facebook)
+- Implement 2FA
+- Add rate limiting
 
-### Longo Prazo
-- [ ] Containerizar com Docker
-- [ ] Integrar com Azure ou AWS
-- [ ] Implementar cache distribuído
-- [ ] Adicionar análise de segurança
+### Long-term
+- Containerize with Docker
+- Integrate with Azure or AWS
+- Implement distributed cache
+- Add security analysis
 
-## Testes
+## Testing
 
-### Executar Todos os Testes
+### Run All Tests
 ```bash
 dotnet test
 ```
 
-### Executar Testes com Cobertura
+### Run Tests with Coverage
 ```bash
 dotnet test /p:CollectCoverage=true
 ```
 
-### Teste de Carga
+### Load Testing
 ```bash
-# Use ferramentas como Apache JMeter ou k6
+# Use tools like Apache JMeter or k6
 ```
 
-## Segurança
+## Security
 
-### Checklist de Segurança
+### Security Checklist
 
-- [ ] JWT Secret configurado com chave forte
-- [ ] HTTPS habilitado em produção
-- [ ] CORS configurado restritivamente
-- [ ] Validação de entrada em todos endpoints
-- [ ] Rate limiting implementado
-- [ ] Logging de atividades de autenticação
-- [ ] Senhas com hash bcrypt (não SHA-256)
-- [ ] Tokens com expiração curta
+- JWT Secret configured with strong key
+- HTTPS enabled in production
+- CORS properly restricted
+- Input validation on all endpoints
+- Rate limiting implemented
+- Activity logging enabled
+- Passwords hashed with BCrypt
+- Short token expiration time
 
 ## Deployment
 
-### Publicar para Produção
+### Publish for Production
 ```bash
 dotnet publish -c Release
 ```
 
-### Configurar Variáveis de Ambiente
+### Configure Environment Variables
 ```bash
-export Jwt__SecretKey="sua-chave-secreta-super-segura"
+export Jwt__SecretKey="your-super-secure-secret-key"
 export Jwt__ExpirationMinutes="60"
 ```
 
@@ -133,24 +133,24 @@ docker run -p 80:80 -p 443:443 auth-system:latest
 
 ## Troubleshooting
 
-### Erro: "Secret key not found"
-- Verificar `appsettings.json`
-- Certificar que `Jwt:SecretKey` está configurado
+### Error: "Secret key not found"
+- Check `appsettings.json`
+- Ensure `Jwt:SecretKey` is configured
 
-### Erro: "Connection refused"
-- Verificar se a aplicação está rodando
-- Verificar a porta (padrão: 5000/5001)
+### Error: "Connection refused"
+- Verify application is running
+- Check the port (default: 5000/5001)
 
-### Erro: "Invalid token"
-- Verificar se o token não expirou
-- Verificar se a chave JWT está igual no servidor
+### Error: "Invalid token"
+- Verify token hasn't expired
+- Verify JWT key is the same on server
 
-## Documentação API
+## API Documentation
 
-A documentação interativa está disponível em:
+Interactive documentation is available at:
 - **Swagger UI**: `http://localhost:5000/swagger`
 - **Swagger JSON**: `http://localhost:5000/swagger/v1/swagger.json`
 
-## Contato
+## Contact
 
-Para dúvidas ou sugestões, abra uma issue no repositório.
+For questions or suggestions, open an issue in the repository.

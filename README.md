@@ -1,139 +1,167 @@
-# Sistema de Autenticação Simples com .NET C#
+# Authentication System with .NET C#
 
-Um sistema de autenticação seguro e simples construído com ASP.NET Core, utilizando JWT (JSON Web Tokens) para autenticação de API.
+A secure and simple authentication system built with ASP.NET Core, utilizing JWT (JSON Web Tokens) for API authentication.
 
-## 📋 Funcionalidades
+## Features
 
-- ✅ Registro de usuários
-- ✅ Login com geração de tokens JWT
-- ✅ Hash seguro de senhas (SHA-256)
-- ✅ Autenticação baseada em Bearer Token
-- ✅ Validação de tokens JWT
-- ✅ Endpoint protegido para perfil do usuário
-- ✅ CORS configurado
-- ✅ Swagger/OpenAPI documentação
+- User registration
+- Login with JWT token generation
+- Secure password hashing using BCrypt
+- Bearer Token-based authentication
+- JWT token validation
+- Protected endpoint for user profile
+- CORS configured
+- Swagger/OpenAPI documentation
+- Health check endpoints
+- HTTPS enforced
 
-## 🏗️ Estrutura do Projeto
+## Project Structure
 
 ```
 auth-system/
 ├── Controllers/
-│   └── AuthController.cs           # Endpoints de autenticação
+│   ├── AuthController.cs           Authentication endpoints
+│   └── HealthCheckController.cs     Health check endpoints
 ├── Models/
-│   ├── User.cs                     # Modelo de usuário
-│   ├── LoginRequest.cs             # Requisição de login
-│   ├── RegisterRequest.cs          # Requisição de registro
-│   └── AuthResponse.cs             # Resposta de autenticação
+│   ├── User.cs                     User model
+│   ├── LoginRequest.cs             Login request DTO
+│   ├── RegisterRequest.cs          Registration request DTO
+│   ├── AuthResponse.cs             Authentication response
+│   └── HealthCheckResponse.cs      Health check response
 ├── Services/
-│   ├── AuthService.cs              # Serviço principal de autenticação
-│   ├── JwtTokenService.cs          # Geração e validação de tokens JWT
-│   └── PasswordHashService.cs      # Hash e verificação de senhas
-├── Program.cs                      # Configuração da aplicação
-├── appsettings.json                # Configurações de produção
-├── appsettings.Development.json    # Configurações de desenvolvimento
-└── auth-system.csproj              # Arquivo de projeto
+│   ├── AuthService.cs              Main authentication service
+│   ├── JwtTokenService.cs          JWT token generation and validation
+│   ├── PasswordHashService.cs      Password hashing with BCrypt
+│   └── HealthCheckService.cs       Health check service
+├── Program.cs                      Application configuration
+├── appsettings.json                Production settings
+├── appsettings.Development.json    Development settings
+└── auth-system.csproj              Project file
 ```
 
-## 🚀 Como Usar
+## Prerequisites
 
-### 1. Pré-requisitos
-
-- .NET 8.0 SDK ou superior
+- .NET 8.0 SDK or higher
 - Visual Studio / Visual Studio Code
-- Postman ou outra ferramenta para testar API
+- Postman or similar tool for testing API
 
-### 2. Executar o Projeto
+## Running the Project
 
 ```bash
-# Restaurar dependências
+# Restore dependencies
 dotnet restore
 
-# Executar a aplicação
+# Run the application
 dotnet run
 
-# Em desenvolvimento
+# Run in development mode
 dotnet run --environment Development
 ```
 
-A aplicação estará disponível em `https://localhost:7091` (ou a porta configurada)
+The application will be available at `https://localhost:7091` (or configured port)
 
-### 3. Endpoints da API
+## API Endpoints
 
-#### 📝 Registro de Usuário
+### Register User
+
 ```http
 POST /api/auth/register
 Content-Type: application/json
 
 {
-  "username": "joao",
-  "email": "joao@example.com",
-  "password": "senha123",
-  "confirmPassword": "senha123"
+  "username": "john_doe",
+  "email": "john@example.com",
+  "password": "SecurePassword123",
+  "confirmPassword": "SecurePassword123"
 }
 ```
 
-**Resposta (Sucesso):**
+**Success Response:**
 ```json
 {
   "success": true,
-  "message": "Usuário registrado com sucesso",
+  "message": "User registered successfully",
   "token": null,
   "user": {
     "id": 1,
-    "username": "joao",
-    "email": "joao@example.com"
+    "username": "john_doe",
+    "email": "john@example.com"
   }
 }
 ```
 
-#### 🔐 Login
+### Login
+
 ```http
 POST /api/auth/login
 Content-Type: application/json
 
 {
-  "username": "joao",
-  "password": "senha123"
+  "username": "john_doe",
+  "password": "SecurePassword123"
 }
 ```
 
-**Resposta (Sucesso):**
+**Success Response:**
 ```json
 {
   "success": true,
-  "message": "Login realizado com sucesso",
+  "message": "Login successful",
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
     "id": 1,
-    "username": "joao",
-    "email": "joao@example.com"
+    "username": "john_doe",
+    "email": "john@example.com"
   }
 }
 ```
 
-#### 👤 Perfil do Usuário (Requer Autenticação)
+### User Profile (Requires Authentication)
+
 ```http
 GET /api/auth/profile
-Authorization: Bearer <seu_token_jwt>
+Authorization: Bearer <your_jwt_token>
 ```
 
-**Resposta:**
+**Response:**
 ```json
 {
   "id": 1,
-  "username": "joao",
-  "email": "joao@example.com"
+  "username": "john_doe",
+  "email": "john@example.com"
 }
 ```
 
-## 🔑 Configuração JWT
+### Health Check
 
-As configurações JWT estão em `appsettings.json`:
+```http
+GET /api/healthcheck
+```
+
+**Response:**
+```json
+{
+  "status": "Ok",
+  "timestamp": "2024-01-15T10:30:45.123Z",
+  "version": "1.0.0",
+  "details": {
+    "databaseHealthy": true,
+    "authServiceHealthy": true,
+    "uptimeMilliseconds": 125430,
+    "activeUsers": 0,
+    "environment": "Development"
+  }
+}
+```
+
+## JWT Configuration
+
+JWT settings are in `appsettings.json`:
 
 ```json
 {
   "Jwt": {
-    "SecretKey": "sua-chave-secreta-muito-longa",
+    "SecretKey": "your-very-long-secret-key-at-least-32-characters",
     "Issuer": "AuthSystem",
     "Audience": "AuthSystemUsers",
     "ExpirationMinutes": 60
@@ -141,39 +169,49 @@ As configurações JWT estão em `appsettings.json`:
 }
 ```
 
-⚠️ **IMPORTANTE**: Em produção, altere a `SecretKey` e use uma chave mais segura.
+IMPORTANT: In production, change the `SecretKey` to a strong, unique value.
 
-## 🔒 Segurança
+## Security
 
-- Senhas são hashadas com SHA-256
-- Tokens JWT com expiração configurável
-- Validação de claims no token
-- CORS configurado
-- Validações de entrada
+- Passwords hashed with BCrypt (industry standard)
+- JWT tokens with configurable expiration
+- Claims validation in tokens
+- CORS properly configured
+- Input validation on all endpoints
+- HTTPS enforced
+- HSTS headers enabled
+- Zero clock skew for JWT validation
 
-## 📦 Dependências
+## Dependencies
 
-- `System.IdentityModel.Tokens.Jwt`: Para trabalhar com JWT
-- `Microsoft.IdentityModel.Tokens`: Para validação de tokens
-- `Microsoft.AspNetCore`: Framework web
+- `System.IdentityModel.Tokens.Jwt`: JWT handling
+- `Microsoft.IdentityModel.Tokens`: Token validation
+- `Microsoft.AspNetCore`: Web framework
+- `BCrypt.Net-Next`: Secure password hashing
 
-## 📝 Notas
+## Notes
 
-- Atualmente, os usuários são armazenados em memória
-- Para produção, integre um banco de dados real (SQL Server, PostgreSQL, etc.)
-- Use secrets seguros para a chave JWT em produção
+- Users are currently stored in memory
+- For production, integrate a real database (SQL Server, PostgreSQL, etc.)
+- Use secure secret management for JWT key in production
+- Consider implementing database encryption for sensitive data
 
-## 🤝 Próximos Passos
+## Future Improvements
 
-Para melhorar este sistema:
+1. Integrate with a real database (Entity Framework Core)
+2. Implement refresh tokens
+3. Add two-factor authentication (2FA)
+4. Implement rate limiting
+5. Add comprehensive logging and audit trails
+6. Add role-based access control (RBAC)
+7. Implement API key authentication option
+8. Add request/response logging middleware
 
-1. Integrar com um banco de dados real (Entity Framework Core)
-2. Implementar refresh tokens
-3. Adicionar autenticação de dois fatores (2FA)
-4. Implementar rate limiting
-5. Adicionar logs e auditoria
-6. Usar bcrypt para hash de senhas (mais seguro)
+## Testing
 
-## 📄 Licença
+Use Postman or cURL to test endpoints. See `EXEMPLOS_TESTES.md` for examples.
+
+## License
 
 MIT
+

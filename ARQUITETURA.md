@@ -1,36 +1,36 @@
-# Arquitetura do Sistema de Autenticação
+# Authentication System Architecture
 
-## Visão Geral
+## Overview
 
-Este é um sistema de autenticação baseado em JWT (JSON Web Tokens) construído com ASP.NET Core 8.0.
+This is a JWT (JSON Web Tokens) based authentication system built with ASP.NET Core 8.0.
 
-## Componentes Principais
+## Main Components
 
 ### 1. Controllers
-- **AuthController** - Gerencia endpoints de autenticação
+- **AuthController** - Manages authentication endpoints
 
 #### Endpoints
-- `POST /api/auth/register` - Registra novo usuário
-- `POST /api/auth/login` - Realiza login e retorna token JWT
-- `GET /api/auth/profile` - Retorna perfil do usuário autenticado
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login and return JWT token
+- `GET /api/auth/profile` - Return authenticated user profile
 
 ### 2. Services
 
 #### AuthService
-Serviço principal de autenticação
-- `RegisterAsync()` - Valida e registra novo usuário
-- `LoginAsync()` - Valida credenciais e gera token
-- `GetUserByUsernameAsync()` - Busca usuário por nome
+Main authentication service
+- `RegisterAsync()` - Validates and registers new user
+- `LoginAsync()` - Validates credentials and generates token
+- `GetUserByUsernameAsync()` - Search user by username
 
 #### JwtTokenService
-Geração e validação de tokens JWT
-- `GenerateToken()` - Cria token JWT para usuário
-- `ValidateToken()` - Valida token recebido
+JWT token generation and validation
+- `GenerateToken()` - Creates JWT token for user
+- `ValidateToken()` - Validates received token
 
 #### PasswordHashService
-Operações com senhas
-- `HashPassword()` - Hash SHA-256 da senha
-- `VerifyPassword()` - Verifica se senha corresponde ao hash
+Password operations with BCrypt
+- `HashPassword()` - Hash password with BCrypt
+- `VerifyPassword()` - Verify password matches hash
 
 ### 3. Models
 
@@ -48,66 +48,69 @@ public class User
 ```
 
 #### DTOs
-- `LoginRequest` - Dados para login
-- `RegisterRequest` - Dados para registro
-- `AuthResponse` - Resposta de autenticação
-- `UserDto` - Dados públicos do usuário
+- `LoginRequest` - Login data
+- `RegisterRequest` - Registration data
+- `AuthResponse` - Authentication response
+- `UserDto` - Public user data
 
-## Fluxo de Autenticação
+## Authentication Flow
 
-### Registro
+### Registration
 ```
-1. Usuário submete dados (username, email, senha)
-2. AuthController valida dados
-3. AuthService verifica se usuário já existe
-4. PasswordHashService faz hash da senha
-5. User armazenado (em memória atualmente)
-6. Retorna UserDto
+1. User submits data (username, email, password)
+2. AuthController validates data
+3. AuthService checks if user already exists
+4. PasswordHashService hashes password with BCrypt
+5. User stored (in memory currently)
+6. Returns UserDto
 ```
 
 ### Login
 ```
-1. Usuário submete username e senha
-2. AuthController recebe dados
-3. AuthService busca usuário
-4. PasswordHashService verifica senha
-5. Se válido, JwtTokenService gera token
-6. Retorna token e dados do usuário
+1. User submits username and password
+2. AuthController receives data
+3. AuthService searches for user
+4. PasswordHashService verifies password
+5. If valid, JwtTokenService generates token
+6. Returns token and user data
 ```
 
-### Acesso a Recurso Protegido
+### Accessing Protected Resource
 ```
-1. Cliente envia GET com Authorization: Bearer <token>
-2. ASP.NET Core valida token via middleware JWT
-3. Se válido, extrai claims
-4. authcontroller acessa User.FindFirst(ClaimTypes.Name)
-5. Retorna dados do usuário
+1. Client sends GET with Authorization: Bearer <token>
+2. ASP.NET Core validates token via JWT middleware
+3. If valid, extracts claims
+4. AuthController accesses User.FindFirst(ClaimTypes.Name)
+5. Returns user data
 ```
 
-## Segurança
+## Security
 
-### Implementado
-- ✅ Hash SHA-256 para senhas
-- ✅ JWT com claims
-- ✅ Token com expiração
-- ✅ Validação de entrada
-- ✅ CORS configurado
+### Implemented
+- Password hashing with BCrypt (industry standard)
+- JWT with claims
+- Token expiration
+- Input validation
+- CORS configured
+- HTTPS enforced
+- HSTS headers enabled
 
-### Recomendações para Produção
-- ⚠️ Usar bcrypt em vez de SHA-256
-- ⚠️ Usar banco de dados real
-- ⚠️ HTTPS obrigatório
-- ⚠️ Rate limiting
-- ⚠️ Logging e auditoria
-- ⚠️ Secrets em variáveis de ambiente
+### Production Recommendations
+- Use strong, unique JWT secret key
+- Use real database instead of in-memory
+- HTTPS is mandatory (not optional)
+- Implement rate limiting
+- Comprehensive logging and audit trails
+- Implement secrets management
+- Rotate keys regularly
 
-## Configuração
+## Configuration
 
 ### appsettings.json
 ```json
 {
   "Jwt": {
-    "SecretKey": "chave-secreta",
+    "SecretKey": "secret-key",
     "Issuer": "issuer",
     "Audience": "audience",
     "ExpirationMinutes": 60
@@ -115,16 +118,17 @@ public class User
 }
 ```
 
-### Dependências Injetadas
+### Dependency Injection
 - `IJwtTokenService` → `JwtTokenService`
 - `IPasswordHashService` → `PasswordHashService`
 - `IAuthService` → `AuthService`
+- `IHealthCheckService` → `HealthCheckService`
 
-## Diagrama de Componentes
+## Component Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Cliente HTTP                         │
+│                    HTTP Client                          │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌─────────────────────▼────────────────────────────────────┐
@@ -136,39 +140,40 @@ public class User
 │              AuthService                                 │
 │  (RegisterAsync, LoginAsync, GetUserByUsernameAsync)   │
 ├─────────────────────────────────────────────────────────┤
-│  ├─ PasswordHashService                                  │
+│  ├─ PasswordHashService (BCrypt)                         │
 │  ├─ JwtTokenService                                      │
-│  └─ UserRepository (memória)                             │
+│  └─ User Repository (in-memory)                          │
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Decisões de Design
+## Design Decisions
 
-1. **In-Memory Storage** - Simples para demonstração
-2. **SHA-256** - Rápido, adequado para exemplo
-3. **JWT** - Stateless, escalável
-4. **Dependency Injection** - Padrão .NET moderno
-5. **Async/Await** - Preparado para I/O assíncrono
+1. **In-Memory Storage** - Simple for demonstration
+2. **BCrypt Hashing** - Industry standard algorithm
+3. **JWT** - Stateless and scalable
+4. **Dependency Injection** - Modern .NET pattern
+5. **Async/Await** - Prepared for async I/O
 
-## Próximas Fases
+## Next Phases
 
-### Fase 2: Database
+### Phase 2: Database
 - Entity Framework Core
-- SQL Server ou PostgreSQL
-- Migrations
+- SQL Server or PostgreSQL
+- Database migrations
 
-### Fase 3: Segurança Avançada
-- Bcrypt para senhas
+### Phase 3: Advanced Security
 - Refresh tokens
-- 2FA
+- Two-factor authentication (2FA)
+- Role-based access control (RBAC)
 
-### Fase 4: Observabilidade
-- Logging estruturado
-- Tracing distribuído
-- Métricas
+### Phase 4: Observability
+- Structured logging
+- Distributed tracing
+- Metrics collection
 
 ---
 
-**Versão**: 1.0  
-**Última atualização**: 2024  
-**Status**: Production-Ready (com ressalvas de segurança)
+**Version**: 1.0  
+**Last Updated**: 2024  
+**Status**: Production-Ready with security considerations
+

@@ -1,5 +1,4 @@
-using System.Security.Cryptography;
-using System.Text;
+using BCrypt.Net;
 
 namespace AuthSystem.Services;
 
@@ -11,18 +10,28 @@ public interface IPasswordHashService
 
 public class PasswordHashService : IPasswordHashService
 {
+    private const int WorkFactor = 12;
+
     public string HashPassword(string password)
     {
-        using (var sha256 = SHA256.Create())
-        {
-            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return Convert.ToBase64String(hashedBytes);
-        }
+        if (string.IsNullOrWhiteSpace(password))
+            throw new ArgumentException("Password cannot be empty", nameof(password));
+
+        return BCrypt.HashPassword(password, WorkFactor);
     }
 
     public bool VerifyPassword(string password, string hash)
     {
-        var hashOfInput = HashPassword(password);
-        return hashOfInput == hash;
+        if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(hash))
+            return false;
+
+        try
+        {
+            return BCrypt.Verify(password, hash);
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

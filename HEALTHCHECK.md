@@ -1,18 +1,16 @@
-# Documentação do Health Check
+# Health Check Documentation
 
-## Endpoints de Health Check
+The system now has three endpoints for monitoring application health:
 
-O sistema agora possui três endpoints para monitoramento da saúde da aplicação:
-
-### 1. Health Status Completo
+## Complete Health Status
 
 ```http
 GET /api/healthcheck
 ```
 
-Retorna informações detalhadas sobre a saúde da aplicação.
+Returns detailed information about application health.
 
-**Resposta (200 OK):**
+**Response (200 OK):**
 ```json
 {
   "status": "Ok",
@@ -28,37 +26,37 @@ Retorna informações detalhadas sobre a saúde da aplicação.
 }
 ```
 
-### 2. Liveness Probe (Kubernetes)
+## Liveness Probe (Kubernetes)
 
 ```http
 GET /api/healthcheck/live
 ```
 
-Verifica se a aplicação está viva. Simples e rápido.
+Checks if the application is alive. Simple and fast.
 
-**Resposta (200 OK):**
+**Response (200 OK):**
 ```json
 {
   "status": "alive"
 }
 ```
 
-### 3. Readiness Probe (Kubernetes)
+## Readiness Probe (Kubernetes)
 
 ```http
 GET /api/healthcheck/ready
 ```
 
-Verifica se a aplicação está pronta para receber requisições.
+Checks if the application is ready to receive requests.
 
-**Resposta (200 OK - Pronta):**
+**Response (200 OK - Ready):**
 ```json
 {
   "status": "ready"
 }
 ```
 
-**Resposta (503 Service Unavailable - Não Pronta):**
+**Response (503 Service Unavailable - Not Ready):**
 ```json
 {
   "status": "not ready",
@@ -72,7 +70,7 @@ Verifica se a aplicação está pronta para receber requisições.
 }
 ```
 
-## Uso em Kubernetes
+## Kubernetes Configuration
 
 ### Liveness Probe
 
@@ -96,7 +94,7 @@ readinessProbe:
   periodSeconds: 5
 ```
 
-## Uso em Docker Compose
+## Docker Compose Configuration
 
 ```yaml
 healthcheck:
@@ -107,50 +105,48 @@ healthcheck:
   start_period: 40s
 ```
 
-## Testes com cURL
+## Testing with cURL
 
 ```bash
-# Health check completo
+# Complete health check
 curl -X GET http://localhost:5000/api/healthcheck
 
-# Liveness
+# Liveness check
 curl -X GET http://localhost:5000/api/healthcheck/live
 
-# Readiness
+# Readiness check
 curl -X GET http://localhost:5000/api/healthcheck/ready
 ```
 
-## Monitoramento
+## Recommended Alerts
 
-### Alertas Recomendados
+- If status != "Ok"
+- If uptimeMilliseconds < 0 (application restarted)
+- If DatabaseHealthy = false
+- If AuthServiceHealthy = false
+- If readiness returns 503 for more than 1 minute
 
-- Se status != "Ok"
-- Se uptimeMilliseconds < 0 (aplicação reiniciou)
-- Se DatabaseHealthy = false
-- Se AuthServiceHealthy = false
-- Se readiness retornar 503 por mais de 1 minuto
+## Log Aggregation
 
-### Agregação de Logs
-
-Você pode agregar os logs de `/api/healthcheck` para monitoramento:
+Aggregate `/api/healthcheck` logs for monitoring:
 
 ```bash
-# Verificar a cada minuto
+# Check every minute
 */1 * * * * curl -s http://localhost:5000/api/healthcheck >> /var/log/health-check.log
 ```
 
-## Implementação Futura
+## Future Improvements
 
-Para versões futuras, melhorar o health check:
+For future versions, enhance the health check:
 
-1. **Database**: Verificar conexão real ao banco
-2. **Cache**: Verificar status do Redis/Memcached
-3. **External APIs**: Verificar dependências externas
-4. **Disk Space**: Monitorar espaço em disco
-5. **Memory**: Monitorar uso de memória
-6. **CPU**: Monitorar carga de CPU
+1. **Database**: Verify actual database connection
+2. **Cache**: Check Redis/Memcached status
+3. **External APIs**: Verify external dependencies
+4. **Disk Space**: Monitor available disk space
+5. **Memory**: Monitor memory usage
+6. **CPU**: Monitor CPU load
 
-Exemplo de implementação estendida:
+Extended implementation example:
 
 ```csharp
 public class HealthCheckDetails
@@ -165,3 +161,4 @@ public class HealthCheckDetails
     public List<string> Errors { get; set; }
 }
 ```
+
