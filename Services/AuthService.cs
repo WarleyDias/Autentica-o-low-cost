@@ -1,207 +1,183 @@
-using AuthSystem.Models;
 using System.Text.RegularExpressions;
+using AuthSystem.Data;
+using AuthSystem.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace AuthSystem.Services;
 
 public interface IAuthService
 {
     Task<AuthResponse> RegisterAsync(RegisterRequest request);
-    Task<AuthResponse> LoginAsync(LoginRequest request);
+    Task<TokenResponse> LoginAsync(LoginRequest request, string ipAddress);
+    Task<TokenResponse> RefreshAsync(string rawRefreshToken, string ipAddress);
+    Task<bool> RevokeAsync(string rawRefreshToken, string ipAddress);
+    Task<User?> GetUserByIdAsync(int id);
     Task<User?> GetUserByUsernameAsync(string username);
 }
 
 public class AuthService : IAuthService
 {
+    private readonly AppDbContext _db;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IPasswordHashService _passwordHashService;
-    private readonly List<User> _users;
+    private readonly IRefreshTokenService _refreshTokenService;
 
     private static readonly Regex EmailValidation = new(
         @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
         RegexOptions.Compiled);
 
-    public AuthService(IJwtTokenService jwtTokenService, IPasswordHashService passwordHashService)
+    public AuthService(
+        AppDbContext db,
+        IJwtTokenService jwtTokenService,
+        IPasswordHashService passwordHashService,
+        IRefreshTokenService refreshTokenService)
     {
+        _db = db;
         _jwtTokenService = jwtTokenService;
         _passwordHashService = passwordHashService;
-        _users = new List<User>();
+        _refreshTokenService = refreshTokenService;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
-        await Task.Delay(0);
-
-        if (string.IsNullOrWhiteSpace(request.Username) || 
-            string.IsNullOrWhiteSpace(request.Email) || 
+        if (string.IsNullOrWhiteSpace(request.Username) ||
+            string.IsNullOrWhiteSpace(request.Email) ||
             string.IsNullOrWhiteSpace(request.Password))
         {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "Username, email and password are required" 
-            };
+            return Fail("Username, email and password are required");
         }
 
         if (request.Password != request.ConfirmPassword)
-        {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "Passwords do not match" 
-            };
-        }
+            return Fail("Passwords do not match");
 
         if (request.Password.Length < 8)
-        {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "Password must have at least 8 characters" 
-            };
-        }
+            return Fail("Password must be at least 8 characters");
 
         if (!EmailValidation.IsMatch(request.Email))
-        {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "Invalid email format" 
-            };
-        }
+            return Fail("Invalid email format");
 
         if (request.Username.Length < 3 || request.Username.Length > 50)
-        {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "Username must be between 3 and 50 characters" 
-            };
-        }
+            return Fail("Username must be between 3 and 50 characters");
 
-        if (_users.Any(u => u.Username.Equals(request.Username, StringComparison.OrdinalIgnoreCase)))
-        {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "Username already exists" 
-            };
-        }
+        var usernameTaken = await _db.Users.AnyAsync(u =>
+            u.Username == request.Username.Trim());
 
-        if (_users.Any(u => u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase)))
-        {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "Email already registered" 
-            };
-        }
+        if (usernameTaken)
+            return Fail("Username already exists");
 
-        try
-        {
-            var user = new User
-            {
-                Id = _users.Count + 1,
-                Username = request.Username.Trim(),
-                Email = request.Email.Trim().ToLower(),
-                PasswordHash = _passwordHashService.HashPassword(request.Password),
-                CreatedAt = DateTime.UtcNow,
-                IsActive = true
-            };
+        var emailTaken = await _db.Users.AnyAsync(u =>
+            u.Email == request.Email.Trim().ToLower());
 
-            _users.Add(user);
+        if (emailTaken)
+            return Fail("Email already registered");
 
-            return new AuthResponse 
-            { 
-                Success = true, 
-                Message = "User registered successfully",
-                User = new UserDto 
-                { 
-                    Id = user.Id, 
-                    Username = user.Username, 
-                    Email = user.Email 
-                }
-            };
-        }
-        catch
+        var user = new User
         {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "An error occurred during registration" 
-            };
-        }
+            Username = request.Username.Trim(),
+            Email = request.Email.Trim().ToLower(),
+            PasswordHash = _passwordHashService.HashPassword(request.Password),
+            CreatedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+
+        return new AuthResponse
+        {
+            Success = true,
+            Message = "User registered successfully",
+            User = ToDto(user)
+        };
     }
 
-    public async Task<AuthResponse> LoginAsync(LoginRequest request)
+    public async Task<TokenResponse> LoginAsync(LoginRequest request, string ipAddress)
     {
-        await Task.Delay(0);
-
-        if (string.IsNullOrWhiteSpace(request.Username) || 
+        if (string.IsNullOrWhiteSpace(request.Username) ||
             string.IsNullOrWhiteSpace(request.Password))
         {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "Username and password are required" 
-            };
+            return FailToken("Username and password are required");
         }
 
-        var user = _users.FirstOrDefault(u => 
-            u.Username.Equals(request.Username, StringComparison.OrdinalIgnoreCase));
+        var user = await _db.Users.FirstOrDefaultAsync(u =>
+            u.Username == request.Username);
+
+        if (user == null || !user.IsActive || !_passwordHashService.VerifyPassword(request.Password, user.PasswordHash))
+            return FailToken("Invalid credentials");
+
+        var accessToken = _jwtTokenService.GenerateToken(user);
+        var (_, rawRefreshToken) = await _refreshTokenService.CreateAsync(user.Id, ipAddress);
+
+        return new TokenResponse
+        {
+            Success = true,
+            Message = "Login successful",
+            AccessToken = accessToken,
+            RefreshToken = rawRefreshToken,
+            ExpiresIn = _jwtTokenService.ExpirationSeconds
+        };
+    }
+
+    public async Task<TokenResponse> RefreshAsync(string rawRefreshToken, string ipAddress)
+    {
+        if (string.IsNullOrWhiteSpace(rawRefreshToken))
+            return FailToken("Refresh token is required");
+
+        var stored = await _refreshTokenService.FindByRawTokenAsync(rawRefreshToken);
+
+        if (stored == null)
+            return FailToken("Invalid token");
+
+        if (stored.IsRevoked)
+        {
+            await _refreshTokenService.RevokeFamilyAsync(stored.Family, ipAddress);
+            return FailToken("Token reuse detected. All sessions have been revoked");
+        }
+
+        if (stored.IsExpired)
+            return FailToken("Refresh token has expired");
+
+        var user = await _db.Users.FindAsync(stored.UserId);
 
         if (user == null || !user.IsActive)
-        {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "Invalid credentials" 
-            };
-        }
+            return FailToken("User not found or inactive");
 
-        if (!_passwordHashService.VerifyPassword(request.Password, user.PasswordHash))
-        {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "Invalid credentials" 
-            };
-        }
+        var (_, newRawToken) = await _refreshTokenService.RotateAsync(stored, ipAddress);
+        var accessToken = _jwtTokenService.GenerateToken(user);
 
-        try
+        return new TokenResponse
         {
-            var token = _jwtTokenService.GenerateToken(user);
-
-            return new AuthResponse 
-            { 
-                Success = true, 
-                Message = "Login successful",
-                Token = token,
-                User = new UserDto 
-                { 
-                    Id = user.Id, 
-                    Username = user.Username, 
-                    Email = user.Email 
-                }
-            };
-        }
-        catch
-        {
-            return new AuthResponse 
-            { 
-                Success = false, 
-                Message = "An error occurred during login" 
-            };
-        }
+            Success = true,
+            Message = "Token refreshed",
+            AccessToken = accessToken,
+            RefreshToken = newRawToken,
+            ExpiresIn = _jwtTokenService.ExpirationSeconds
+        };
     }
+
+    public async Task<bool> RevokeAsync(string rawRefreshToken, string ipAddress)
+    {
+        var stored = await _refreshTokenService.FindByRawTokenAsync(rawRefreshToken);
+
+        if (stored == null || stored.IsRevoked)
+            return false;
+
+        await _refreshTokenService.RevokeAsync(stored, ipAddress);
+        return true;
+    }
+
+    public async Task<User?> GetUserByIdAsync(int id)
+        => await _db.Users.FindAsync(id);
 
     public async Task<User?> GetUserByUsernameAsync(string username)
-    {
-        await Task.Delay(0);
-        
-        if (string.IsNullOrWhiteSpace(username))
-            return null;
+        => await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
 
-        return _users.FirstOrDefault(u => 
-            u.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
-    }
+    private static AuthResponse Fail(string message)
+        => new() { Success = false, Message = message };
+
+    private static TokenResponse FailToken(string message)
+        => new() { Success = false, Message = message };
+
+    private static UserDto ToDto(User user)
+        => new() { Id = user.Id, Username = user.Username, Email = user.Email };
 }
