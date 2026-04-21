@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  auth-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:80"
+      - "5001:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Jwt__SecretKey=your-super-secret-key-change-in-production
+      - Jwt__ExpirationMinutes=60
+    container_name: auth-system-api
+    networks:
+      - auth-network
+
+networks:
+  auth-network:
+    driver: bridge
