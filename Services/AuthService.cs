@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using AuthSystem.Data;
 using AuthSystem.Models;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +6,6 @@ namespace AuthSystem.Services;
 
 public interface IAuthService
 {
-    Task<AuthResponse> RegisterAsync(RegisterRequest request);
     Task<TokenResponse> LoginAsync(LoginRequest request, string ipAddress);
     Task<TokenResponse> RefreshAsync(string rawRefreshToken, string ipAddress);
     Task<bool> RevokeAsync(string rawRefreshToken, string ipAddress);
@@ -23,10 +21,7 @@ public class AuthService : IAuthService
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly IAuditLogService _auditLog;
     private readonly ILogger<AuthService> _logger;
-
-    private static readonly Regex EmailValidation = new(
-        @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
-        RegexOptions.Compiled);
+    private readonly bool _requireEmailVerification;
 
     public AuthService(
         AppDbContext db,
@@ -34,7 +29,8 @@ public class AuthService : IAuthService
         IPasswordHashService passwordHashService,
         IRefreshTokenService refreshTokenService,
         IAuditLogService auditLog,
-        ILogger<AuthService> logger)
+        ILogger<AuthService> logger,
+        IConfiguration configuration)
     {
         _db = db;
         _jwtTokenService = jwtTokenService;
@@ -42,59 +38,8 @@ public class AuthService : IAuthService
         _refreshTokenService = refreshTokenService;
         _auditLog = auditLog;
         _logger = logger;
-    }
-
-    public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Username) ||
-            string.IsNullOrWhiteSpace(request.Email) ||
-            string.IsNullOrWhiteSpace(request.Password))
-        {
-            return Fail("Username, email and password are required");
-        }
-
-        if (request.Password != request.ConfirmPassword)
-            return Fail("Passwords do not match");
-
-        if (request.Password.Length < 8)
-            return Fail("Password must be at least 8 characters");
-
-        if (!EmailValidation.IsMatch(request.Email))
-            return Fail("Invalid email format");
-
-        if (request.Username.Length < 3 || request.Username.Length > 50)
-            return Fail("Username must be between 3 and 50 characters");
-
-        var usernameTaken = await _db.Users.AnyAsync(u =>
-            u.Username == request.Username.Trim());
-
-        if (usernameTaken)
-            return Fail("Username already exists");
-
-        var emailTaken = await _db.Users.AnyAsync(u =>
-            u.Email == request.Email.Trim().ToLower());
-
-        if (emailTaken)
-            return Fail("Email already registered");
-
-        var user = new User
-        {
-            Username = request.Username.Trim(),
-            Email = request.Email.Trim().ToLower(),
-            PasswordHash = _passwordHashService.HashPassword(request.Password),
-            CreatedAt = DateTime.UtcNow,
-            IsActive = true
-        };
-
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
-
-        return new AuthResponse
-        {
-            Success = true,
-            Message = "User registered successfully",
-            User = ToDto(user)
-        };
+        _requireEmailVerification = bool.Parse(
+            configuration["Auth:RequireEmailVerification"] ?? "false");
     }
 
     public async Task<TokenResponse> LoginAsync(LoginRequest request, string ipAddress)
@@ -123,6 +68,15 @@ public class AuthService : IAuthService
                 userId: user.Id, username: user.Username, details: "invalid_password");
 
             return FailToken("Invalid credentials");
+        }
+
+        if (_requireEmailVerification && !user.IsEmailVerified)
+        {
+            await _auditLog.LogAsync(
+                SecurityEvent.LoginFailed, false, ipAddress,
+                userId: user.Id, username: user.Username, details: "email_not_verified");
+
+            return FailToken("Email not verified. Check your inbox.");
         }
 
         var accessToken = _jwtTokenService.GenerateToken(user);
@@ -216,12 +170,6 @@ public class AuthService : IAuthService
     public async Task<User?> GetUserByUsernameAsync(string username)
         => await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
 
-    private static AuthResponse Fail(string message)
-        => new() { Success = false, Message = message };
-
     private static TokenResponse FailToken(string message)
         => new() { Success = false, Message = message };
-
-    private static UserDto ToDto(User user)
-        => new() { Id = user.Id, Username = user.Username, Email = user.Email };
 }

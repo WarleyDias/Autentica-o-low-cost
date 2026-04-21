@@ -11,10 +11,12 @@ namespace AuthSystem.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IAccountService _accountService;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IAccountService accountService)
     {
         _authService = authService;
+        _accountService = accountService;
     }
 
     [HttpPost("register")]
@@ -22,10 +24,7 @@ public class AuthController : ControllerBase
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(new AuthResponse { Success = false, Message = "Invalid input" });
-
-        var response = await _authService.RegisterAsync(request);
+        var response = await _accountService.RegisterAsync(request, GetClientIp());
 
         if (!response.Success)
             return BadRequest(response);
@@ -38,11 +37,7 @@ public class AuthController : ControllerBase
     [ProducesResponseType(typeof(TokenResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<TokenResponse>> Login([FromBody] LoginRequest request)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(new TokenResponse { Success = false, Message = "Invalid input" });
-
-        var ip = GetClientIp();
-        var response = await _authService.LoginAsync(request, ip);
+        var response = await _authService.LoginAsync(request, GetClientIp());
 
         if (!response.Success)
             return Unauthorized(response);
@@ -58,8 +53,7 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
             return BadRequest(new TokenResponse { Success = false, Message = "Refresh token is required" });
 
-        var ip = GetClientIp();
-        var response = await _authService.RefreshAsync(request.RefreshToken, ip);
+        var response = await _authService.RefreshAsync(request.RefreshToken, GetClientIp());
 
         if (!response.Success)
             return Unauthorized(response);
@@ -75,8 +69,7 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
             return BadRequest(new { message = "Refresh token is required" });
 
-        var ip = GetClientIp();
-        await _authService.RevokeAsync(request.RefreshToken, ip);
+        await _authService.RevokeAsync(request.RefreshToken, GetClientIp());
 
         return NoContent();
     }
@@ -88,12 +81,43 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
     {
         if (!string.IsNullOrWhiteSpace(request.RefreshToken))
-        {
-            var ip = GetClientIp();
-            await _authService.RevokeAsync(request.RefreshToken, ip);
-        }
+            await _authService.RevokeAsync(request.RefreshToken, GetClientIp());
 
         return NoContent();
+    }
+
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        await _accountService.ForgotPasswordAsync(request, GetClientIp());
+        return Ok(new { message = "If that email is registered, a reset link has been sent." });
+    }
+
+    [HttpPost("reset-password")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<AuthResponse>> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        var response = await _accountService.ResetPasswordAsync(request, GetClientIp());
+
+        if (!response.Success)
+            return BadRequest(response);
+
+        return Ok(response);
+    }
+
+    [HttpPost("verify-email")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<AuthResponse>> VerifyEmail([FromBody] VerifyEmailRequest request)
+    {
+        var response = await _accountService.VerifyEmailAsync(request, GetClientIp());
+
+        if (!response.Success)
+            return BadRequest(response);
+
+        return Ok(response);
     }
 
     [Authorize]
