@@ -111,6 +111,57 @@ Requer `Authorization: Bearer <access_token>`. Corpo opcional com `refreshToken`
 
 Requer `Authorization: Bearer <access_token>`.
 
+## Auditoria e logs de seguranca
+
+Eventos de seguranca sao persistidos na tabela `AuditLogs` e emitidos como logs estruturados via `ILogger`.
+
+### Eventos registrados
+
+| EventType | Nivel | DB | Descricao |
+|-----------|-------|----|-----------|
+| `LOGIN_SUCCESS` | Info | Sim | Login bem-sucedido |
+| `LOGIN_FAILED` | Warning | Sim | Credenciais invalidas (detail: `user_not_found` ou `invalid_password`) |
+| `TOKEN_REUSE_DETECTED` | Critical | Sim | Refresh token ja revogado apresentado - toda a family e derrubada |
+| `TOKEN_REVOKED` | Info | Sim | Revogacao explicita via `/revoke` ou `/logout` |
+| `JWT_VALIDATION_FAILED` | Warning | Sim | Token JWT com assinatura invalida, expirado ou malformado |
+
+Token refresh bem-sucedido e logado apenas via `ILogger` (sem DB) por ser evento de alto volume operacional.
+
+### Formato do log estruturado
+
+```
+[AUDIT] Event={EventType} Success={Success} UserId={UserId} Username={Username} IP={IpAddress} Details={Details}
+```
+
+### Isolamento do contexto de auditoria
+
+`AuditLogService` usa `IDbContextFactory<AppDbContext>` para criar um DbContext proprio em cada escrita. Isso garante que uma falha no contexto principal do request (ex: violacao de constraint) nao impeça o registro do evento de auditoria. O log estruturado e sempre escrito primeiro; a persistencia em DB e best-effort com fallback para `LogError`.
+
+### Consultas uteis
+
+```sql
+-- Tentativas de login falhas nas ultimas 24h por IP
+SELECT IpAddress, COUNT(*) as attempts
+FROM AuditLogs
+WHERE EventType = 'LOGIN_FAILED'
+  AND CreatedAt > datetime('now', '-1 day')
+GROUP BY IpAddress
+ORDER BY attempts DESC;
+
+-- Incidentes de reutilizacao de token
+SELECT * FROM AuditLogs
+WHERE EventType = 'TOKEN_REUSE_DETECTED'
+ORDER BY CreatedAt DESC;
+
+-- Historico de um usuario especifico
+SELECT EventType, IpAddress, Success, Details, CreatedAt
+FROM AuditLogs
+WHERE UserId = 5
+ORDER BY CreatedAt DESC;
+```
+
+Em producao, considere adicionar retencao automatica (ex: deletar registros com mais de 90 dias) para evitar crescimento ilimitado da tabela.
+
 ## Estrutura
 
 ```
@@ -121,10 +172,12 @@ Data/
 Models/
   User.cs                     entidade de usuario
   RefreshToken.cs             entidade de refresh token (sem campo raw)
+  AuditLog.cs                 entidade de auditoria + SecurityEvent constants
   TokenResponse.cs            DTO de resposta com par de tokens
 Services/
   AuthService.cs              logica de negocio: register, login, refresh, revoke
   RefreshTokenService.cs      criacao, rotacao e revogacao de tokens
+  AuditLogService.cs          persistencia e emissao de eventos de seguranca
   JwtTokenService.cs          geracao e validacao de JWT
   PasswordHashService.cs      wrapper BCrypt
 ```

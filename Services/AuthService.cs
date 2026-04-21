@@ -21,6 +21,8 @@ public class AuthService : IAuthService
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IPasswordHashService _passwordHashService;
     private readonly IRefreshTokenService _refreshTokenService;
+    private readonly IAuditLogService _auditLog;
+    private readonly ILogger<AuthService> _logger;
 
     private static readonly Regex EmailValidation = new(
         @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
@@ -30,12 +32,16 @@ public class AuthService : IAuthService
         AppDbContext db,
         IJwtTokenService jwtTokenService,
         IPasswordHashService passwordHashService,
-        IRefreshTokenService refreshTokenService)
+        IRefreshTokenService refreshTokenService,
+        IAuditLogService auditLog,
+        ILogger<AuthService> logger)
     {
         _db = db;
         _jwtTokenService = jwtTokenService;
         _passwordHashService = passwordHashService;
         _refreshTokenService = refreshTokenService;
+        _auditLog = auditLog;
+        _logger = logger;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -99,14 +105,32 @@ public class AuthService : IAuthService
             return FailToken("Username and password are required");
         }
 
-        var user = await _db.Users.FirstOrDefaultAsync(u =>
-            u.Username == request.Username);
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
 
-        if (user == null || !user.IsActive || !_passwordHashService.VerifyPassword(request.Password, user.PasswordHash))
+        if (user == null || !user.IsActive)
+        {
+            await _auditLog.LogAsync(
+                SecurityEvent.LoginFailed, false, ipAddress,
+                username: request.Username, details: "user_not_found");
+
             return FailToken("Invalid credentials");
+        }
+
+        if (!_passwordHashService.VerifyPassword(request.Password, user.PasswordHash))
+        {
+            await _auditLog.LogAsync(
+                SecurityEvent.LoginFailed, false, ipAddress,
+                userId: user.Id, username: user.Username, details: "invalid_password");
+
+            return FailToken("Invalid credentials");
+        }
 
         var accessToken = _jwtTokenService.GenerateToken(user);
         var (_, rawRefreshToken) = await _refreshTokenService.CreateAsync(user.Id, ipAddress);
+
+        await _auditLog.LogAsync(
+            SecurityEvent.LoginSuccess, true, ipAddress,
+            userId: user.Id, username: user.Username);
 
         return new TokenResponse
         {
@@ -131,11 +155,22 @@ public class AuthService : IAuthService
         if (stored.IsRevoked)
         {
             await _refreshTokenService.RevokeFamilyAsync(stored.Family, ipAddress);
+
+            await _auditLog.LogAsync(
+                SecurityEvent.TokenReuseDetected, false, ipAddress,
+                userId: stored.UserId, details: $"family={stored.Family}");
+
             return FailToken("Token reuse detected. All sessions have been revoked");
         }
 
         if (stored.IsExpired)
+        {
+            _logger.LogInformation(
+                "Refresh token expired for UserId={UserId} IP={IpAddress}",
+                stored.UserId, ipAddress);
+
             return FailToken("Refresh token has expired");
+        }
 
         var user = await _db.Users.FindAsync(stored.UserId);
 
@@ -144,6 +179,10 @@ public class AuthService : IAuthService
 
         var (_, newRawToken) = await _refreshTokenService.RotateAsync(stored, ipAddress);
         var accessToken = _jwtTokenService.GenerateToken(user);
+
+        _logger.LogInformation(
+            "Token rotated for UserId={UserId} IP={IpAddress}",
+            user.Id, ipAddress);
 
         return new TokenResponse
         {
@@ -163,6 +202,11 @@ public class AuthService : IAuthService
             return false;
 
         await _refreshTokenService.RevokeAsync(stored, ipAddress);
+
+        await _auditLog.LogAsync(
+            SecurityEvent.TokenRevoked, true, ipAddress,
+            userId: stored.UserId);
+
         return true;
     }
 
