@@ -1,5 +1,3 @@
-using BCrypt.Net;
-
 namespace AuthSystem.Services;
 
 public interface IPasswordHashService
@@ -17,7 +15,7 @@ public class PasswordHashService : IPasswordHashService
         if (string.IsNullOrWhiteSpace(password))
             throw new ArgumentException("Password cannot be empty", nameof(password));
 
-        return BCrypt.HashPassword(password, WorkFactor);
+        return BCrypt.Net.BCrypt.HashPassword(password, WorkFactor);
     }
 
     public bool VerifyPassword(string password, string hash)
@@ -27,7 +25,7 @@ public class PasswordHashService : IPasswordHashService
 
         try
         {
-            return BCrypt.Verify(password, hash);
+            return BCrypt.Net.BCrypt.Verify(password, hash);
         }
         catch
         {

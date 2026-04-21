@@ -10,6 +10,7 @@ public interface IJwtTokenService
 {
     string GenerateToken(User user);
     ClaimsPrincipal? ValidateToken(string token);
+    int ExpirationSeconds { get; }
 }
 
 public class JwtTokenService : IJwtTokenService
@@ -18,6 +19,8 @@ public class JwtTokenService : IJwtTokenService
     private readonly string _issuer;
     private readonly string _audience;
     private readonly int _expirationMinutes;
+
+    public int ExpirationSeconds => _expirationMinutes * 60;
 
     public JwtTokenService(IConfiguration configuration)
     {

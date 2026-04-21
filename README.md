@@ -1,217 +1,137 @@
-# Authentication System with .NET C#
+# Auth System
 
-A secure and simple authentication system built with ASP.NET Core, utilizing JWT (JSON Web Tokens) for API authentication.
+Sistema de autenticacao JWT com refresh tokens persistidos em banco, construido com ASP.NET Core 8.
 
-## Features
+## Stack
 
-- User registration
-- Login with JWT token generation
-- Secure password hashing using BCrypt
-- Bearer Token-based authentication
-- JWT token validation
-- Protected endpoint for user profile
-- CORS configured
-- Swagger/OpenAPI documentation
-- Health check endpoints
-- HTTPS enforced
+- .NET 8 / ASP.NET Core
+- Entity Framework Core + SQLite
+- BCrypt.Net-Next (hash de senhas, work factor 12)
+- JWT Bearer (access token curto) + Refresh Token (longa duracao)
 
-## Project Structure
+## Fluxo de autenticacao
 
 ```
-auth-system/
-├── Controllers/
-│   ├── AuthController.cs           Authentication endpoints
-│   └── HealthCheckController.cs     Health check endpoints
-├── Models/
-│   ├── User.cs                     User model
-│   ├── LoginRequest.cs             Login request DTO
-│   ├── RegisterRequest.cs          Registration request DTO
-│   ├── AuthResponse.cs             Authentication response
-│   └── HealthCheckResponse.cs      Health check response
-├── Services/
-│   ├── AuthService.cs              Main authentication service
-│   ├── JwtTokenService.cs          JWT token generation and validation
-│   ├── PasswordHashService.cs      Password hashing with BCrypt
-│   └── HealthCheckService.cs       Health check service
-├── Program.cs                      Application configuration
-├── appsettings.json                Production settings
-├── appsettings.Development.json    Development settings
-└── auth-system.csproj              Project file
+POST /api/auth/register  -> cria usuario no banco
+POST /api/auth/login     -> retorna access token (JWT, 15min) + refresh token (7 dias)
+POST /api/auth/refresh   -> valida refresh token, rotaciona, retorna novo par
+POST /api/auth/revoke    -> invalida refresh token especifico
+POST /api/auth/logout    -> invalida refresh token (requer JWT valido)
+GET  /api/auth/profile   -> dados do usuario autenticado (requer JWT valido)
 ```
 
-## Prerequisites
+## Seguranca dos refresh tokens
 
-- .NET 8.0 SDK or higher
-- Visual Studio / Visual Studio Code
-- Postman or similar tool for testing API
+**Armazenamento:** apenas SHA-256 do token e salvo no banco. O valor raw trafega via HTTPS e nunca persiste.
 
-## Running the Project
+**Rotacao:** a cada `/refresh`, o token atual e revogado e um novo e emitido na mesma `family` (identificador de sessao de login).
 
-```bash
-# Restore dependencies
-dotnet restore
+**Deteccao de reutilizacao:** se um token ja revogado for apresentado, toda a `family` e revogada imediatamente. O cenario indica token roubado - o atacante usou antes do cliente legitimo, ou o cliente tentou reusar um token ja rotacionado. A resposta e forcar re-autenticacao completa.
 
-# Run the application
-dotnet run
-
-# Run in development mode
-dotnet run --environment Development
-```
-
-The application will be available at `https://localhost:7091` (or configured port)
-
-## API Endpoints
-
-### Register User
-
-```http
-POST /api/auth/register
-Content-Type: application/json
-
-{
-  "username": "john_doe",
-  "email": "john@example.com",
-  "password": "SecurePassword123",
-  "confirmPassword": "SecurePassword123"
-}
-```
-
-**Success Response:**
-```json
-{
-  "success": true,
-  "message": "User registered successfully",
-  "token": null,
-  "user": {
-    "id": 1,
-    "username": "john_doe",
-    "email": "john@example.com"
-  }
-}
-```
-
-### Login
-
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "username": "john_doe",
-  "password": "SecurePassword123"
-}
-```
-
-**Success Response:**
-```json
-{
-  "success": true,
-  "message": "Login successful",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": 1,
-    "username": "john_doe",
-    "email": "john@example.com"
-  }
-}
-```
-
-### User Profile (Requires Authentication)
-
-```http
-GET /api/auth/profile
-Authorization: Bearer <your_jwt_token>
-```
-
-**Response:**
-```json
-{
-  "id": 1,
-  "username": "john_doe",
-  "email": "john@example.com"
-}
-```
-
-### Health Check
-
-```http
-GET /api/healthcheck
-```
-
-**Response:**
-```json
-{
-  "status": "Ok",
-  "timestamp": "2024-01-15T10:30:45.123Z",
-  "version": "1.0.0",
-  "details": {
-    "databaseHealthy": true,
-    "authServiceHealthy": true,
-    "uptimeMilliseconds": 125430,
-    "activeUsers": 0,
-    "environment": "Development"
-  }
-}
-```
-
-## JWT Configuration
-
-JWT settings are in `appsettings.json`:
+## Configuracao
 
 ```json
 {
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=auth.db"
+  },
   "Jwt": {
-    "SecretKey": "your-very-long-secret-key-at-least-32-characters",
+    "SecretKey": "chave-minimo-32-caracteres-trocar-em-producao",
     "Issuer": "AuthSystem",
     "Audience": "AuthSystemUsers",
-    "ExpirationMinutes": 60
+    "ExpirationMinutes": 15
+  },
+  "RefreshToken": {
+    "ExpirationDays": 7
   }
 }
 ```
 
-IMPORTANT: In production, change the `SecretKey` to a strong, unique value.
+Em producao, `SecretKey` deve vir de variavel de ambiente ou secrets manager, nunca do repositorio.
 
-## Security
+## Rodar localmente
 
-- Passwords hashed with BCrypt (industry standard)
-- JWT tokens with configurable expiration
-- Claims validation in tokens
-- CORS properly configured
-- Input validation on all endpoints
-- HTTPS enforced
-- HSTS headers enabled
-- Zero clock skew for JWT validation
+```bash
+dotnet restore auth-system.csproj
+dotnet run --project auth-system.csproj
+```
 
-## Dependencies
+O banco SQLite (`auth.db`) e criado automaticamente via `EnsureCreated()` na inicializacao. Swagger disponivel em `/swagger` no ambiente Development.
 
-- `System.IdentityModel.Tokens.Jwt`: JWT handling
-- `Microsoft.IdentityModel.Tokens`: Token validation
-- `Microsoft.AspNetCore`: Web framework
-- `BCrypt.Net-Next`: Secure password hashing
+## Endpoints
 
-## Notes
+### POST /api/auth/register
 
-- Users are currently stored in memory
-- For production, integrate a real database (SQL Server, PostgreSQL, etc.)
-- Use secure secret management for JWT key in production
-- Consider implementing database encryption for sensitive data
+```json
+{
+  "username": "joao",
+  "email": "joao@exemplo.com",
+  "password": "Senha123!",
+  "confirmPassword": "Senha123!"
+}
+```
 
-## Future Improvements
+### POST /api/auth/login
 
-1. Integrate with a real database (Entity Framework Core)
-2. Implement refresh tokens
-3. Add two-factor authentication (2FA)
-4. Implement rate limiting
-5. Add comprehensive logging and audit trails
-6. Add role-based access control (RBAC)
-7. Implement API key authentication option
-8. Add request/response logging middleware
+```json
+{ "username": "joao", "password": "Senha123!" }
+```
 
-## Testing
+Resposta:
+```json
+{
+  "success": true,
+  "accessToken": "eyJ...",
+  "refreshToken": "base64url...",
+  "expiresIn": 900
+}
+```
 
-Use Postman or cURL to test endpoints. See `EXEMPLOS_TESTES.md` for examples.
+### POST /api/auth/refresh
 
-## License
+```json
+{ "refreshToken": "base64url..." }
+```
 
-MIT
+Retorna novo par `accessToken` + `refreshToken`. O token anterior e invalidado.
 
+### POST /api/auth/revoke
+
+```json
+{ "refreshToken": "base64url..." }
+```
+
+Retorna `204 No Content`.
+
+### POST /api/auth/logout
+
+Requer `Authorization: Bearer <access_token>`. Corpo opcional com `refreshToken` para revogar a sessao atual.
+
+### GET /api/auth/profile
+
+Requer `Authorization: Bearer <access_token>`.
+
+## Estrutura
+
+```
+Controllers/
+  AuthController.cs           endpoints de autenticacao
+Data/
+  AppDbContext.cs             EF Core DbContext + mapeamento das entidades
+Models/
+  User.cs                     entidade de usuario
+  RefreshToken.cs             entidade de refresh token (sem campo raw)
+  TokenResponse.cs            DTO de resposta com par de tokens
+Services/
+  AuthService.cs              logica de negocio: register, login, refresh, revoke
+  RefreshTokenService.cs      criacao, rotacao e revogacao de tokens
+  JwtTokenService.cs          geracao e validacao de JWT
+  PasswordHashService.cs      wrapper BCrypt
+```
+
+## Dependencias
+
+- `Microsoft.AspNetCore.Authentication.JwtBearer` 8.0.0
+- `Microsoft.EntityFrameworkCore.Sqlite` 8.0.0
+- `BCrypt.Net-Next` 4.0.3
+- `Swashbuckle.AspNetCore` 6.5.0
